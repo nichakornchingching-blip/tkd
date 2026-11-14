@@ -1,0 +1,1050 @@
+<!DOCTYPE html>
+<html lang="th" class="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TKD NEXUS // Cyber Scoreboard System</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@600;800;900&family=Prompt:wght@300;400;500;600;700;800&display=swap');
+        
+        .font-cyber { font-family: 'Orbitron', sans-serif; }
+        body { font-family: 'Prompt', sans-serif; background-color: #020617; color: #f8fafc; overflow-x: hidden; }
+
+        /* Cyber Glow & Gradients */
+        .glow-blue { text-shadow: 0 0 30px rgba(59, 130, 246, 0.6), 0 0 60px rgba(59, 130, 246, 0.3); }
+        .glow-red { text-shadow: 0 0 30px rgba(239, 68, 68, 0.6), 0 0 60px rgba(239, 68, 68, 0.3); }
+        .glow-time { text-shadow: 0 0 40px rgba(234, 179, 8, 0.4); }
+        
+        .glass-panel {
+            background: rgba(15, 23, 42, 0.7);
+            backdrop-filter: blur(16px);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+        }
+
+        .cyber-card-blue {
+            background: linear-gradient(145deg, rgba(30, 58, 138, 0.25) 0%, rgba(3, 7, 18, 0.9) 100%);
+            border: 1px solid rgba(59, 130, 246, 0.3);
+            box-shadow: 0 0 40px rgba(30, 58, 138, 0.2), inset 0 0 20px rgba(59, 130, 246, 0.05);
+            transition: all 0.3s ease;
+        }
+
+        .cyber-card-red {
+            background: linear-gradient(145deg, rgba(153, 27, 27, 0.25) 0%, rgba(3, 7, 18, 0.9) 100%);
+            border: 1px solid rgba(239, 68, 68, 0.3);
+            box-shadow: 0 0 40px rgba(153, 27, 27, 0.2), inset 0 0 20px rgba(239, 68, 68, 0.05);
+            transition: all 0.3s ease;
+        }
+
+        /* Leader Glow active highlights */
+        .card-leader-blue {
+            border-color: rgba(59, 130, 246, 0.9) !important;
+            box-shadow: 0 0 50px rgba(59, 130, 246, 0.4), inset 0 0 25px rgba(59, 130, 246, 0.15) !important;
+            transform: scale(1.01);
+        }
+
+        .card-leader-red {
+            border-color: rgba(239, 68, 68, 0.9) !important;
+            box-shadow: 0 0 50px rgba(239, 68, 68, 0.4), inset 0 0 25px rgba(239, 68, 68, 0.15) !important;
+            transform: scale(1.01);
+        }
+
+        @keyframes trophy-bounce {
+            0%, 100% { transform: translateY(0) scale(1); }
+            50% { transform: translateY(-10px) scale(1.05); }
+        }
+        .animate-trophy { animation: trophy-bounce 2.5s infinite ease-in-out; }
+
+        /* Custom Scrollbar */
+        ::-webkit-scrollbar { width: 6px; }
+        ::-webkit-scrollbar-track { background: #020617; }
+        ::-webkit-scrollbar-thumb { background: #1e293b; border-radius: 4px; }
+        ::-webkit-scrollbar-thumb:hover { background: #334155; }
+    </style>
+</head>
+<body class="min-h-screen flex flex-col select-none">
+
+    <!-- Custom Modal for Alerts (Replacing browser alert) -->
+    <div id="custom-modal" class="hidden fixed inset-0 bg-slate-950/80 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+        <div class="glass-panel p-6 rounded-2xl max-w-sm w-full text-center border border-slate-700 shadow-2xl">
+            <h3 id="modal-title" class="font-cyber font-bold text-cyan-400 text-lg mb-2">แจ้งเตือนระบบ</h3>
+            <p id="modal-message" class="text-sm text-slate-300 mb-6">-</p>
+            <div id="modal-actions" class="flex gap-2 justify-center">
+                <button id="modal-btn-ok" onclick="closeCustomModal()" class="bg-cyan-600 hover:bg-cyan-500 text-white px-5 py-2 rounded-xl text-xs font-bold transition">ตกลง</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- หน้าเลือกบทบาท (Role Selector) -->
+    <div id="role-selector" class="fixed inset-0 bg-[#020617] flex flex-col items-center justify-center z-40 p-6">
+        <div class="absolute inset-0 bg-[radial-gradient(circle_at_center,_var(--tw-gradient-stops))] from-blue-900/10 via-transparent to-transparent pointer-events-none"></div>
+        <div class="relative z-10 max-w-xl w-full text-center">
+            <div class="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-blue-500/10 border border-blue-500/20 text-blue-400 text-xs font-cyber tracking-widest uppercase mb-4">
+                <span class="w-2 h-2 rounded-full bg-blue-500 animate-pulse"></span> TKD NEXUS SYSTEM
+            </div>
+            <h1 class="text-4xl md:text-5xl font-black mb-3 text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 via-blue-500 to-indigo-500 font-cyber tracking-wider">CHOOSE ROLE</h1>
+            <p class="text-slate-400 mb-8 text-sm">เลือกบทบาทอุปกรณ์สำหรับการเชื่อมต่อระบบคะแนนแบบเรียลไทม์</p>
+            <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                <button onclick="selectRole('operator')" class="group relative bg-slate-900/80 hover:bg-blue-950/40 p-6 rounded-2xl border border-slate-800 hover:border-blue-500/50 transition-all duration-300 shadow-xl overflow-hidden">
+                    <div class="absolute inset-0 bg-gradient-to-b from-blue-500/10 to-transparent opacity-0 group-hover:opacity-100 transition"></div>
+                    <div class="relative z-10">
+                        <div class="text-3xl mb-2">🖥️</div>
+                        <div class="font-bold text-white text-base font-cyber tracking-wide">OPERATOR</div>
+                        <div class="text-[11px] text-slate-400 mt-1">หน้าจอหลัก / คุมเวลา</div>
+                    </div>
+                </button>
+                <button onclick="selectRole('judge1')" class="group relative bg-slate-900/80 hover:bg-purple-950/40 p-6 rounded-2xl border border-slate-800 hover:border-purple-500/50 transition-all duration-300 shadow-xl overflow-hidden">
+                    <div class="absolute inset-0 bg-gradient-to-b from-purple-500/10 to-transparent opacity-0 group-hover:opacity-100 transition"></div>
+                    <div class="relative z-10">
+                        <div class="text-3xl mb-2">📱</div>
+                        <div class="font-bold text-white text-base font-cyber tracking-wide">JUDGE 1</div>
+                        <div class="text-[11px] text-slate-400 mt-1">กรรมการมุมที่ 1</div>
+                    </div>
+                </button>
+                <button onclick="selectRole('judge2')" class="group relative bg-slate-900/80 hover:bg-red-950/40 p-6 rounded-2xl border border-slate-800 hover:border-red-500/50 transition-all duration-300 shadow-xl overflow-hidden">
+                    <div class="absolute inset-0 bg-gradient-to-b from-red-500/10 to-transparent opacity-0 group-hover:opacity-100 transition"></div>
+                    <div class="relative z-10">
+                        <div class="text-3xl mb-2">📱</div>
+                        <div class="font-bold text-white text-base font-cyber tracking-wide">JUDGE 2</div>
+                        <div class="text-[11px] text-slate-400 mt-1">กรรมการมุมที่ 2</div>
+                    </div>
+                </button>
+            </div>
+            <div class="mt-6">
+                <button onclick="selectRole('display')" class="text-xs text-slate-400 hover:text-cyan-400 underline transition">🔗 เปิดโหมดหน้าจอผู้ชม (Display Mode)</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- ==================== OPERATOR (จอควบคุมหลัก) ==================== -->
+    <div id="view-operator" class="hidden flex-1 flex flex-col p-4 md:p-6 bg-[#020617]">
+        <header class="glass-panel px-6 py-3.5 rounded-2xl flex flex-col md:flex-row justify-between items-center gap-4 mb-4 shadow-lg">
+            <div class="flex items-center gap-3">
+                <div class="w-2.5 h-2.5 bg-emerald-500 rounded-full animate-ping"></div>
+                <span id="match-title-display" class="text-base md:text-lg font-bold text-cyan-400 font-cyber tracking-wider uppercase">CHAMPIONSHIP MATCH</span>
+                <span class="text-xs text-slate-500 hidden xl:inline ml-2">| [Space] เริ่ม/หยุด | [R] รีเซ็ตเวลา | [M] สลับโหมด</span>
+            </div>
+            <div class="flex items-center gap-2 flex-wrap">
+                <button onclick="switchRolePrompt()" class="bg-cyan-950/60 hover:bg-cyan-900/60 border border-cyan-800/40 text-cyan-300 px-3 py-2 rounded-xl text-xs font-semibold transition">🔀 เปลี่ยนบทบาท</button>
+                <button onclick="openHistoryModal()" class="bg-slate-800/80 hover:bg-slate-700/80 border border-slate-700/60 px-4 py-2 rounded-xl text-xs font-semibold transition flex items-center gap-1.5">📜 ประวัติการแข่ง</button>
+                <button onclick="openSettings()" class="bg-slate-800/80 hover:bg-slate-700/80 border border-slate-700/60 px-4 py-2 rounded-xl text-xs font-semibold transition flex items-center gap-1.5">⚙️ ตั้งค่า</button>
+                <button onclick="resetMatch()" class="bg-rose-950/40 hover:bg-rose-900/60 border border-rose-800/40 text-rose-300 px-4 py-2 rounded-xl text-xs font-semibold transition">🔄 รีเซ็ตทั้งหมด</button>
+            </div>
+        </header>
+
+        <div class="grid grid-cols-1 lg:grid-cols-12 gap-4 flex-1">
+            <!-- น้ำเงิน CHONG -->
+            <div id="panel-chong" class="lg:col-span-5 cyber-card-blue rounded-3xl p-5 md:p-6 flex flex-col justify-between relative overflow-hidden">
+                <div class="absolute top-0 right-0 w-32 h-32 bg-blue-500/5 rounded-full blur-2xl pointer-events-none"></div>
+                <div class="flex justify-between items-start z-10">
+                    <div>
+                        <div class="flex items-center gap-2">
+                            <span class="px-3 py-1 bg-blue-500/15 border border-blue-500/30 text-blue-400 text-[10px] font-cyber font-bold rounded-full tracking-widest uppercase">CHONG // น้ำเงิน</span>
+                            <span id="chong-leader-badge" class="hidden px-2 py-0.5 bg-blue-500 text-white font-bold text-[9px] rounded-full uppercase tracking-wider animate-pulse">👑 นำอยู่</span>
+                        </div>
+                        <h2 id="chong-name" class="text-2xl md:text-3xl font-extrabold text-white mt-2 tracking-tight">นักกีฬา 1</h2>
+                    </div>
+                    <div class="text-right flex flex-col items-end gap-1.5">
+                        <div class="text-xs text-blue-200/80 font-medium bg-blue-950/60 px-3 py-1 rounded-lg border border-blue-800/30">ยกที่ชนะ: <span id="chong-rounds-won" class="text-white font-bold text-sm">0</span>/2</div>
+                        <div class="text-xs text-rose-300 font-medium bg-rose-950/40 px-3 py-1 rounded-lg border border-rose-900/30">คัมเจิม (Gam-jeom): <span id="chong-gamjeom" class="text-white font-bold text-sm">0</span></div>
+                    </div>
+                </div>
+                <div class="text-center my-6 z-10">
+                    <div class="text-[8rem] sm:text-[10rem] xl:text-[12rem] leading-none font-black font-cyber text-blue-400 glow-blue tracking-tighter" id="chong-score">0</div>
+                </div>
+                <div class="flex flex-col gap-2.5 z-10">
+                    <div class="grid grid-cols-6 gap-1.5 bg-slate-950/60 p-2 rounded-2xl border border-blue-950">
+                        <button onclick="scorePoint('chong', 1)" class="bg-blue-600 hover:bg-blue-500 active:scale-95 py-3 rounded-xl font-cyber font-bold text-sm shadow transition">+1</button>
+                        <button onclick="scorePoint('chong', 2)" class="bg-blue-700 hover:bg-blue-600 active:scale-95 py-3 rounded-xl font-cyber font-bold text-sm shadow transition">+2</button>
+                        <button onclick="scorePoint('chong', 3)" class="bg-blue-800 hover:bg-blue-700 active:scale-95 py-3 rounded-xl font-cyber font-bold text-sm shadow transition">+3</button>
+                        <button onclick="scorePoint('chong', 4)" class="bg-indigo-600 hover:bg-indigo-500 active:scale-95 py-3 rounded-xl font-cyber font-bold text-sm shadow border border-amber-400/40 transition">+4</button>
+                        <button onclick="scorePoint('chong', 6)" class="bg-purple-600 hover:bg-purple-500 active:scale-95 py-3 rounded-xl font-cyber font-bold text-sm shadow border border-amber-400/40 transition">+6</button>
+                        <button onclick="adjustScore('chong', -1)" class="bg-slate-800 hover:bg-slate-700 active:scale-95 py-3 rounded-xl font-cyber font-bold text-sm text-rose-400 border border-rose-900/30 transition">-1</button>
+                    </div>
+                    <div class="grid grid-cols-3 gap-1.5">
+                        <button onclick="addGamJeom('chong', 1)" class="bg-rose-950/60 hover:bg-rose-900/70 border border-rose-800/30 py-2.5 rounded-xl text-xs font-semibold text-rose-300 transition">คัมเจิม +1 (แดง+1)</button>
+                        <button onclick="addGamJeom('chong', 2)" class="bg-rose-900/40 hover:bg-rose-800/60 border border-rose-700/30 py-2.5 rounded-xl text-xs font-semibold text-rose-200 transition">คัมเจิม +1 (แดง+2)</button>
+                        <button onclick="removeGamJeom('chong')" class="bg-slate-800/80 hover:bg-slate-700 border border-slate-700/50 py-2.5 rounded-xl text-xs font-semibold text-slate-300 transition">ลบคัมเจิม (-1)</button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- ตรงกลาง: เวลา & ยก -->
+            <div class="lg:col-span-2 glass-panel rounded-3xl p-4 flex flex-col justify-between shadow-2xl">
+                <div class="text-center bg-slate-950/60 py-3 px-2 rounded-2xl border border-slate-800/80">
+                    <div class="text-[10px] text-cyan-400 font-cyber tracking-widest uppercase">ROUND</div>
+                    <div class="text-3xl md:text-4xl font-black font-cyber text-white mt-1"><span id="current-round">1</span><span class="text-sm text-slate-500">/3</span></div>
+                    <div class="text-[10px] text-slate-500 mt-0.5 font-medium">BEST OF 3</div>
+                </div>
+                <div class="text-center my-4 bg-slate-950/80 py-6 px-2 rounded-2xl border border-amber-500/20 shadow-inner relative overflow-hidden">
+                    <div class="absolute inset-0 bg-gradient-to-b from-amber-500/5 to-transparent pointer-events-none"></div>
+                    <div id="timer-mode-label" class="text-[11px] font-bold text-emerald-400 tracking-wider uppercase mb-1 font-cyber">MATCH TIME</div>
+                    <div id="timer-display" class="text-4xl sm:text-5xl xl:text-6xl font-black font-cyber text-amber-400 glow-time tracking-tight">01:30</div>
+                </div>
+                <div class="flex flex-col gap-2">
+                    <button onclick="toggleTimer()" id="btn-timer" class="w-full bg-gradient-to-r from-emerald-600 to-green-600 hover:from-emerald-500 hover:to-green-500 py-3.5 rounded-2xl font-bold text-xs md:text-sm shadow-lg transition tracking-wide">▶️ เริ่มเวลา [Space]</button>
+                    <button onclick="resetTimer()" class="w-full bg-slate-800/80 hover:bg-slate-700 border border-slate-700/60 py-2.5 rounded-xl font-semibold text-xs transition">🔄 รีเซ็ตเวลา [R]</button>
+                    <button onclick="switchTimerMode()" id="timer-mode-btn" class="w-full bg-indigo-950/60 hover:bg-indigo-900/60 border border-indigo-700/40 text-indigo-300 py-2.5 rounded-xl font-semibold text-xs transition">สลับ: พักยก (Rest) [M]</button>
+                    <button onclick="endRoundManually()" class="w-full bg-amber-950/50 hover:bg-amber-900/60 border border-amber-700/30 text-amber-300 py-2 rounded-xl font-semibold text-xs transition mt-1">🏁 จบยกนี้</button>
+                </div>
+            </div>
+
+            <!-- แดง HONG -->
+            <div id="panel-hong" class="lg:col-span-5 cyber-card-red rounded-3xl p-5 md:p-6 flex flex-col justify-between relative overflow-hidden">
+                <div class="absolute top-0 right-0 w-32 h-32 bg-red-500/5 rounded-full blur-2xl pointer-events-none"></div>
+                <div class="flex justify-between items-start z-10">
+                    <div>
+                        <div class="flex items-center gap-2">
+                            <span class="px-3 py-1 bg-red-500/15 border border-red-500/30 text-red-400 text-[10px] font-cyber font-bold rounded-full tracking-widest uppercase">HONG // แดง</span>
+                            <span id="hong-leader-badge" class="hidden px-2 py-0.5 bg-red-500 text-white font-bold text-[9px] rounded-full uppercase tracking-wider animate-pulse">👑 นำอยู่</span>
+                        </div>
+                        <h2 id="hong-name" class="text-2xl md:text-3xl font-extrabold text-white mt-2 tracking-tight">นักกีฬา 2</h2>
+                    </div>
+                    <div class="text-right flex flex-col items-end gap-1.5">
+                        <div class="text-xs text-red-200/80 font-medium bg-red-950/60 px-3 py-1 rounded-lg border border-red-800/30">ยกที่ชนะ: <span id="hong-rounds-won" class="text-white font-bold text-sm">0</span>/2</div>
+                        <div class="text-xs text-rose-300 font-medium bg-rose-950/40 px-3 py-1 rounded-lg border border-rose-900/30">คัมเจิม (Gam-jeom): <span id="hong-gamjeom" class="text-white font-bold text-sm">0</span></div>
+                    </div>
+                </div>
+                <div class="text-center my-6 z-10">
+                    <div class="text-[8rem] sm:text-[10rem] xl:text-[12rem] leading-none font-black font-cyber text-red-400 glow-red tracking-tighter" id="hong-score">0</div>
+                </div>
+                <div class="flex flex-col gap-2.5 z-10">
+                    <div class="grid grid-cols-6 gap-1.5 bg-slate-950/60 p-2 rounded-2xl border border-red-950">
+                        <button onclick="scorePoint('hong', 1)" class="bg-red-600 hover:bg-red-500 active:scale-95 py-3 rounded-xl font-cyber font-bold text-sm shadow transition">+1</button>
+                        <button onclick="scorePoint('hong', 2)" class="bg-red-700 hover:bg-red-600 active:scale-95 py-3 rounded-xl font-cyber font-bold text-sm shadow transition">+2</button>
+                        <button onclick="scorePoint('hong', 3)" class="bg-red-800 hover:bg-red-700 active:scale-95 py-3 rounded-xl font-cyber font-bold text-sm shadow transition">+3</button>
+                        <button onclick="scorePoint('hong', 4)" class="bg-indigo-600 hover:bg-indigo-500 active:scale-95 py-3 rounded-xl font-cyber font-bold text-sm shadow border border-amber-400/40 transition">+4</button>
+                        <button onclick="scorePoint('hong', 6)" class="bg-purple-600 hover:bg-purple-500 active:scale-95 py-3 rounded-xl font-cyber font-bold text-sm shadow border border-amber-400/40 transition">+6</button>
+                        <button onclick="adjustScore('hong', -1)" class="bg-slate-800 hover:bg-slate-700 active:scale-95 py-3 rounded-xl font-cyber font-bold text-sm text-blue-400 border border-blue-900/30 transition">-1</button>
+                    </div>
+                    <div class="grid grid-cols-3 gap-1.5">
+                        <button onclick="addGamJeom('hong', 1)" class="bg-blue-950/60 hover:bg-blue-900/70 border border-blue-800/30 py-2.5 rounded-xl text-xs font-semibold text-blue-300 transition">คัมเจิม +1 (น้ำเงิน+1)</button>
+                        <button onclick="addGamJeom('hong', 2)" class="bg-blue-900/40 hover:bg-blue-800/60 border border-blue-700/30 py-2.5 rounded-xl text-xs font-semibold text-blue-200 transition">คัมเจิม +1 (น้ำเงิน+2)</button>
+                        <button onclick="removeGamJeom('hong')" class="bg-slate-800/80 hover:bg-slate-700 border border-slate-700/50 py-2.5 rounded-xl text-xs font-semibold text-slate-300 transition">ลบคัมเจิม (-1)</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ==================== JUDGE PANEL (ระบบยืนยัน 2 คน) ==================== -->
+    <div id="view-judge" class="hidden flex-1 flex flex-col p-4 max-w-4xl mx-auto w-full justify-between select-none">
+        <header class="glass-panel p-4 rounded-2xl flex justify-between items-center mb-4 shadow-xl">
+            <div class="flex items-center gap-3">
+                <span class="w-3 h-3 bg-cyan-400 rounded-full animate-ping"></span>
+                <span id="judge-role-title" class="text-sm font-bold text-cyan-400 font-cyber tracking-wide">CORNER JUDGE</span>
+            </div>
+            <div class="flex items-center gap-4 text-xs md:text-sm">
+                <button onclick="switchRolePrompt()" class="text-cyan-400 underline text-xs">เปลี่ยนบทบาท</button>
+                <div>ยกที่: <b id="judge-round" class="text-amber-400 text-base">1</b></div>
+                <div class="bg-slate-950/80 px-4 py-1.5 rounded-xl border border-slate-800 font-cyber text-lg text-amber-400" id="judge-timer">01:30</div>
+                <div>สถานะ: <b id="judge-timer-status" class="text-emerald-400">หยุดเวลา</b></div>
+            </div>
+        </header>
+
+        <!-- แจ้งเตือนสถานะรอยืนยัน -->
+        <div id="judge-status-alert" class="hidden bg-amber-500/10 border border-amber-500/30 text-amber-300 px-4 py-2.5 rounded-xl text-center text-xs md:text-sm font-semibold mb-2 animate-pulse">
+            ⏳ ส่งสัญญาณแล้ว... รออีกกรรมการยืนยันคะแนน (ภายใน 1 วินาที)
+        </div>
+
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4 flex-1 items-center">
+            <!-- น้ำเงิน -->
+            <div class="cyber-card-blue p-6 rounded-3xl shadow-2xl flex flex-col justify-between">
+                <div class="flex justify-between items-center mb-6">
+                    <span class="text-blue-400 font-cyber font-bold tracking-widest text-xs uppercase">🔵 CHONG (น้ำเงิน)</span>
+                    <div class="font-cyber text-4xl text-blue-400 font-black" id="judge-chong-score">0</div>
+                </div>
+                <div class="grid grid-cols-5 gap-3 items-center my-2">
+                    <button onclick="judgePressPoint('chong', 1)" class="col-span-2 aspect-square bg-blue-600 hover:bg-blue-500 active:scale-95 rounded-2xl flex flex-col items-center justify-center shadow-lg border-2 border-blue-400/30 transition">
+                        <span class="font-cyber text-4xl font-black text-white">+1</span>
+                        <span class="text-[10px] text-blue-200 font-bold mt-1">แต้ม</span>
+                    </button>
+                    <button onclick="judgePressPoint('chong', 2)" class="col-span-2 aspect-square bg-blue-700 hover:bg-blue-600 active:scale-95 rounded-2xl flex flex-col items-center justify-center shadow-lg border-2 border-blue-400/30 transition">
+                        <span class="font-cyber text-4xl font-black text-white">+2</span>
+                        <span class="text-[10px] text-blue-200 font-bold mt-1">แต้ม</span>
+                    </button>
+                    <div class="col-span-1 flex flex-col gap-2">
+                        <button onclick="judgePressPoint('chong', 3)" class="bg-blue-900/80 hover:bg-blue-800 py-3 rounded-xl font-cyber font-bold text-xs transition">3</button>
+                        <button onclick="judgePressPoint('chong', 4)" class="bg-indigo-600 hover:bg-indigo-500 py-3 rounded-xl font-cyber font-bold text-xs border border-amber-400/40 transition">4</button>
+                        <button onclick="judgePressPoint('chong', 6)" class="bg-purple-600 hover:bg-purple-500 py-3 rounded-xl font-cyber font-bold text-xs border border-amber-400/40 transition">6</button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- แดง -->
+            <div class="cyber-card-red p-6 rounded-3xl shadow-2xl flex flex-col justify-between">
+                <div class="flex justify-between items-center mb-6">
+                    <span class="text-red-400 font-cyber font-bold tracking-widest text-xs uppercase">🔴 HONG (แดง)</span>
+                    <div class="font-cyber text-4xl text-red-400 font-black" id="judge-hong-score">0</div>
+                </div>
+                <div class="grid grid-cols-5 gap-3 items-center my-2">
+                    <button onclick="judgePressPoint('hong', 1)" class="col-span-2 aspect-square bg-red-600 hover:bg-red-500 active:scale-95 rounded-2xl flex flex-col items-center justify-center shadow-lg border-2 border-red-400/30 transition">
+                        <span class="font-cyber text-4xl font-black text-white">+1</span>
+                        <span class="text-[10px] text-red-200 font-bold mt-1">แต้ม</span>
+                    </button>
+                    <button onclick="judgePressPoint('hong', 2)" class="col-span-2 aspect-square bg-red-700 hover:bg-red-600 active:scale-95 rounded-2xl flex flex-col items-center justify-center shadow-lg border-2 border-red-400/30 transition">
+                        <span class="font-cyber text-4xl font-black text-white">+2</span>
+                        <span class="text-[10px] text-red-200 font-bold mt-1">แต้ม</span>
+                    </button>
+                    <div class="col-span-1 flex flex-col gap-2">
+                        <button onclick="judgePressPoint('hong', 3)" class="bg-red-900/80 hover:bg-red-800 py-3 rounded-xl font-cyber font-bold text-xs transition">3</button>
+                        <button onclick="judgePressPoint('hong', 4)" class="bg-indigo-600 hover:bg-indigo-500 py-3 rounded-xl font-cyber font-bold text-xs border border-amber-400/40 transition">4</button>
+                        <button onclick="judgePressPoint('hong', 6)" class="bg-purple-600 hover:bg-purple-500 py-3 rounded-xl font-cyber font-bold text-xs border border-amber-400/40 transition">6</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="text-center text-[11px] text-slate-500 mt-4 font-mono">DOUBLE JUDGE CONSENSUS PROTOCOL ACTIVE</div>
+    </div>
+
+    <!-- ==================== DISPLAY VIEW (หน้าจอผู้ชมขนาดใหญ่ ปรับปรุงใหม่) ==================== -->
+    <div id="view-display" class="hidden fixed inset-0 z-50 flex flex-col p-6 bg-[#020617] justify-between overflow-y-auto">
+        <!-- แถบบนแสดงข้อมูลแมตช์และชื่อรายการ -->
+        <header class="glass-panel px-8 py-4 rounded-2xl flex flex-col md:flex-row justify-between items-center shadow-2xl gap-2 border border-slate-700/80">
+            <div class="flex items-center gap-3">
+                <span class="w-3.5 h-3.5 bg-emerald-500 rounded-full animate-pulse shadow-[0_0_12px_#10b981]"></span>
+                <span id="display-match-title" class="text-xl md:text-2xl font-extrabold text-cyan-400 font-cyber tracking-widest uppercase">CHAMPIONSHIP MATCH</span>
+            </div>
+            <div class="flex items-center gap-6">
+                <button onclick="switchRolePrompt()" class="bg-slate-800/80 hover:bg-slate-700 text-xs px-4 py-2 rounded-xl text-slate-300 border border-slate-700">สลับบทบาท</button>
+                <div class="bg-slate-950/90 px-6 py-2 rounded-xl border border-slate-800 font-cyber text-base text-amber-400 tracking-wider">
+                    ยกที่ <span id="display-round" class="text-xl font-bold">1</span> / 3
+                </div>
+            </div>
+        </header>
+
+        <!-- พื้นที่กระดานคะแนนหลัก -->
+        <div class="grid grid-cols-1 lg:grid-cols-12 gap-6 my-auto items-center py-4">
+            <!-- น้ำเงิน CHONG -->
+            <div id="display-card-chong" class="lg:col-span-5 cyber-card-blue rounded-3xl p-8 md:p-10 flex flex-col items-center justify-center text-center relative overflow-hidden">
+                <div class="absolute top-4 left-4 flex items-center gap-2">
+                    <span class="px-4 py-1.5 bg-blue-500/20 border border-blue-500/40 text-blue-400 text-xs font-cyber font-bold rounded-full tracking-widest uppercase">🔵 CHONG (น้ำเงิน)</span>
+                    <span id="display-chong-leader" class="hidden px-3 py-1 bg-blue-500 text-white font-bold text-[10px] rounded-full uppercase tracking-wider animate-bounce">👑 ผู้นำ</span>
+                </div>
+                <div class="mt-8 mb-2">
+                    <h2 id="display-chong-name" class="text-4xl md:text-5xl font-black text-white tracking-tight">นักกีฬา 1</h2>
+                </div>
+                <div class="text-[10rem] md:text-[15rem] leading-none font-black font-cyber text-blue-400 glow-blue tracking-tighter my-2" id="display-chong-score">0</div>
+                <div class="flex flex-wrap justify-center gap-4 text-sm text-slate-300 mt-4">
+                    <div class="bg-blue-950/80 px-5 py-2 rounded-xl border border-blue-900/40 font-medium">ยกที่ชนะ: <b id="display-chong-rounds" class="text-white text-lg">0</b> / 2</div>
+                    <div class="bg-rose-950/50 px-5 py-2 rounded-xl border border-rose-950 font-medium">คัมเจิม (Gam-jeom): <b id="display-chong-gam" class="text-rose-400 text-lg">0</b></div>
+                </div>
+            </div>
+
+            <!-- กลาง: เวลาแข่ง -->
+            <div class="lg:col-span-2 flex flex-col items-center justify-center gap-4">
+                <div class="glass-panel p-6 md:p-8 rounded-3xl w-full text-center border border-amber-500/30 shadow-2xl relative overflow-hidden">
+                    <div id="display-timer-mode" class="text-xs font-bold text-emerald-400 font-cyber tracking-widest uppercase mb-3">MATCH TIME</div>
+                    <div id="display-timer" class="text-5xl md:text-6xl font-black font-cyber text-amber-400 glow-time tracking-tight">01:30</div>
+                </div>
+            </div>
+
+            <!-- แดง HONG -->
+            <div id="display-card-hong" class="lg:col-span-5 cyber-card-red rounded-3xl p-8 md:p-10 flex flex-col items-center justify-center text-center relative overflow-hidden">
+                <div class="absolute top-4 left-4 flex items-center gap-2">
+                    <span class="px-4 py-1.5 bg-red-500/20 border border-red-500/40 text-red-400 text-xs font-cyber font-bold rounded-full tracking-widest uppercase">🔴 HONG (แดง)</span>
+                    <span id="display-hong-leader" class="hidden px-3 py-1 bg-red-500 text-white font-bold text-[10px] rounded-full uppercase tracking-wider animate-bounce">👑 ผู้นำ</span>
+                </div>
+                <div class="mt-8 mb-2">
+                    <h2 id="display-hong-name" class="text-4xl md:text-5xl font-black text-white tracking-tight">นักกีฬา 2</h2>
+                </div>
+                <div class="text-[10rem] md:text-[15rem] leading-none font-black font-cyber text-red-400 glow-red tracking-tighter my-2" id="display-hong-score">0</div>
+                <div class="flex flex-wrap justify-center gap-4 text-sm text-slate-300 mt-4">
+                    <div class="bg-red-950/80 px-5 py-2 rounded-xl border border-red-900/40 font-medium">ยกที่ชนะ: <b id="display-hong-rounds" class="text-white text-lg">0</b> / 2</div>
+                    <div class="bg-rose-950/50 px-5 py-2 rounded-xl border border-rose-950 font-medium">คัมเจิม (Gam-jeom): <b id="display-hong-gam" class="text-rose-400 text-lg">0</b></div>
+                </div>
+            </div>
+        </div>
+
+        <footer class="text-center text-xs text-slate-500 font-cyber tracking-widest py-2">TKD NEXUS LIVE ARENA SYSTEM // OFFICIAL DISPLAY SCREEN</footer>
+    </div>
+
+    <!-- ==================== DISPLAY WINNER MODAL (ประกาศผู้ชนะอลังการสำหรับจอผู้ชม) ==================== -->
+    <div id="display-winner-modal" class="hidden fixed inset-0 bg-slate-950/95 backdrop-blur-xl flex items-center justify-center z-50 p-4">
+        <div class="glass-panel border-2 border-amber-400/80 p-8 md:p-12 rounded-3xl max-w-2xl w-full text-center flex flex-col gap-6 shadow-[0_0_80px_rgba(245,158,11,0.3)] relative overflow-hidden">
+            <div class="absolute -top-12 -left-12 w-48 h-48 bg-amber-500/10 rounded-full blur-3xl pointer-events-none"></div>
+            <div class="absolute -bottom-12 -right-12 w-48 h-48 bg-cyan-500/10 rounded-full blur-3xl pointer-events-none"></div>
+
+            <div id="display-match-champion-badge" class="mx-auto px-6 py-2 bg-gradient-to-r from-amber-500/20 via-yellow-500/30 to-amber-500/20 border border-amber-400 text-amber-300 rounded-full text-sm font-cyber tracking-widest uppercase shadow-lg animate-trophy">
+                🏆 GRAND CHAMPION // THE ULTIMATE WINNER (BEST OF 3)
+            </div>
+
+            <div class="text-5xl md:text-6xl animate-trophy">🥇</div>
+            <h2 id="display-winner-title" class="text-3xl md:text-5xl font-black font-cyber text-amber-400 tracking-wider">GRAND CHAMPION</h2>
+            
+            <div id="display-champion-name-big" class="text-3xl md:text-5xl font-black py-6 px-8 rounded-2xl border-2 my-2 font-cyber shadow-2xl"></div>
+            <p id="display-winner-desc" class="text-base md:text-lg text-slate-300 font-medium">-</p>
+            
+            <div id="display-tiebreak-box" class="bg-slate-950/90 border border-slate-700/80 p-4 rounded-2xl text-left text-xs text-slate-300 shadow-inner">
+                <p class="font-bold text-amber-400 mb-1 font-cyber tracking-wide">⚖️ รายละเอียดการตัดสิน:</p>
+                <p id="display-tiebreak-reason">-</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- ==================== Modal ประวัติการแข่งขัน ==================== -->
+    <div id="history-modal" class="hidden fixed inset-0 bg-slate-950/85 backdrop-blur-md flex items-center justify-center z-50 p-4">
+        <div class="glass-panel p-6 rounded-3xl max-w-xl w-full flex flex-col gap-4 shadow-2xl max-h-[80vh] border border-slate-800">
+            <div class="flex justify-between items-center">
+                <h2 class="text-lg font-bold text-cyan-400 font-cyber">📜 MATCH HISTORY</h2>
+                <button onclick="closeHistoryModal()" class="text-slate-400 hover:text-white font-bold text-lg">✕</button>
+            </div>
+            <div id="history-list" class="flex-1 overflow-y-auto flex flex-col gap-2.5 pr-1">
+                <p class="text-slate-500 text-center py-8 text-xs">ยังไม่มีประวัติการแข่งขันในระบบ</p>
+            </div>
+            <div class="flex justify-between gap-2 pt-3 border-t border-slate-800">
+                <button onclick="clearHistory()" class="bg-rose-950/60 hover:bg-rose-900/80 border border-rose-800/40 text-rose-300 px-4 py-2 rounded-xl text-xs font-semibold">🗑️ ล้างประวัติ</button>
+                <button onclick="closeHistoryModal()" class="bg-slate-800 hover:bg-slate-700 px-5 py-2 rounded-xl text-xs font-semibold text-white">ปิด</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- ==================== Modal ตั้งค่า ==================== -->
+    <div id="settings-modal" class="hidden fixed inset-0 bg-slate-950/85 backdrop-blur-md flex items-center justify-center z-50 p-4">
+        <div class="glass-panel p-6 rounded-3xl max-w-md w-full flex flex-col gap-4 shadow-2xl border border-slate-800">
+            <h2 class="text-lg font-bold text-cyan-400 font-cyber">⚙️ MATCH SETTINGS</h2>
+            <div>
+                <label class="text-xs text-slate-400">ชื่อแมตช์ / รายการ</label>
+                <input type="text" id="input-match-title" class="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-white text-sm mt-1 outline-none focus:border-blue-500 transition">
+            </div>
+            <div>
+                <label class="text-xs text-slate-400">ชื่อนักกีฬาน้ำเงิน (Chong)</label>
+                <input type="text" id="input-chong-name" class="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-white text-sm mt-1 outline-none focus:border-blue-500 transition">
+            </div>
+            <div>
+                <label class="text-xs text-slate-400">ชื่อนักกีฬาแดง (Hong)</label>
+                <input type="text" id="input-hong-name" class="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-white text-sm mt-1 outline-none focus:border-red-500 transition">
+            </div>
+            <div class="grid grid-cols-2 gap-3">
+                <div>
+                    <label class="text-xs text-slate-400">เวลาแข่ง (วินาที)</label>
+                    <input type="number" id="input-match-time" class="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-white text-sm mt-1 outline-none">
+                </div>
+                <div>
+                    <label class="text-xs text-slate-400">เวลาพัก (วินาที)</label>
+                    <input type="number" id="input-rest-time" class="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-white text-sm mt-1 outline-none">
+                </div>
+            </div>
+            <div class="flex justify-end gap-2 mt-2">
+                <button onclick="closeSettings()" class="bg-slate-800 hover:bg-slate-700 px-4 py-2 rounded-xl text-xs font-semibold text-white">ยกเลิก</button>
+                <button onclick="saveSettings()" class="bg-cyan-600 hover:bg-cyan-500 px-5 py-2 rounded-xl text-xs font-bold text-white shadow-lg">บันทึก</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- ==================== Modal ประกาศผล (ปรับปรุงใหม่ ให้อลังการยิ่งขึ้น) ==================== -->
+    <div id="winner-modal" class="hidden fixed inset-0 bg-slate-950/95 backdrop-blur-xl flex items-center justify-center z-50 p-4">
+        <div class="glass-panel border-2 border-amber-400/80 p-8 md:p-12 rounded-3xl max-w-2xl w-full text-center flex flex-col gap-6 shadow-[0_0_80px_rgba(245,158,11,0.3)] relative overflow-hidden">
+            <div class="absolute -top-12 -left-12 w-48 h-48 bg-amber-500/10 rounded-full blur-3xl pointer-events-none"></div>
+            <div class="absolute -bottom-12 -right-12 w-48 h-48 bg-cyan-500/10 rounded-full blur-3xl pointer-events-none"></div>
+
+            <div id="match-champion-badge" class="hidden mx-auto px-6 py-2 bg-gradient-to-r from-amber-500/20 via-yellow-500/30 to-amber-500/20 border border-amber-400 text-amber-300 rounded-full text-sm font-cyber tracking-widest uppercase shadow-lg animate-trophy">
+                🏆 GRAND CHAMPION // THE ULTIMATE WINNER (BEST OF 3)
+            </div>
+
+            <div class="text-5xl md:text-6xl animate-trophy">🥇</div>
+            <h2 id="winner-title" class="text-3xl md:text-5xl font-black font-cyber text-amber-400 tracking-wider">WINNER</h2>
+            
+            <div id="champion-name-big" class="hidden text-3xl md:text-5xl font-black py-6 px-8 rounded-2xl border my-2 font-cyber shadow-2xl"></div>
+            <p id="winner-desc" class="text-base md:text-lg text-slate-300 font-medium">-</p>
+            
+            <div id="tiebreak-box" class="hidden bg-slate-950/90 border border-slate-700/80 p-4 rounded-2xl text-left text-xs text-slate-300 shadow-inner">
+                <p class="font-bold text-amber-400 mb-1 font-cyber tracking-wide">⚖️ รายละเอียดการตัดสิน:</p>
+                <p id="tiebreak-reason">-</p>
+            </div>
+
+            <div id="superiority-box" class="hidden flex flex-col gap-3 mt-2">
+                <p class="text-amber-400 font-bold text-sm">กรุณาให้ผู้ตัดสินชี้ขาด (Superiority Decision):</p>
+                <div class="grid grid-cols-2 gap-3">
+                    <button onclick="selectSuperiority('chong')" class="bg-blue-600 hover:bg-blue-500 py-3.5 rounded-xl font-bold text-sm shadow-lg border border-blue-400">น้ำเงินชนะ (Superiority)</button>
+                    <button onclick="selectSuperiority('hong')" class="bg-red-600 hover:bg-red-500 py-3.5 rounded-xl font-bold text-sm shadow-lg border border-red-400">แดงชนะ (Superiority)</button>
+                </div>
+            </div>
+
+            <button id="btn-next-round" onclick="proceedNextRound()" class="w-full bg-gradient-to-r from-emerald-600 via-green-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 py-4 rounded-2xl font-bold text-base md:text-lg mt-2 shadow-xl transition transform active:scale-95 font-cyber tracking-wider">ไปยกถัดไป ➔</button>
+        </div>
+    </div>
+
+    <!-- Script ควบคุมระบบ -->
+    <script>
+        const firebaseConfig = {
+            apiKey: "AIzaSyA8_R-H_AOkZNd47m1hHTQT4p7LvunslA8",
+            authDomain: "scorbord.firebaseapp.com",
+            databaseURL: "https://scorbord-default-rtdb.asia-southeast1.firebasedatabase.app",
+            projectId: "scorbord",
+            storageBucket: "scorbord.firebasestorage.app",
+            messagingSenderId: "210816079628",
+            appId: "1:210816079628:web:cb8ca7cc334b9248289b29",
+            measurementId: "G-V9K286EEFL"
+        };
+
+        firebase.initializeApp(firebaseConfig);
+        const db = firebase.database();
+        const matchRef = db.ref('taekwondo/match');
+        const historyRef = db.ref('taekwondo/history');
+
+        let defaultMatchState = {
+            matchTitle: "CHAMPIONSHIP MATCH",
+            chongName: "นักกีฬา 1",
+            hongName: "นักกีฬา 2",
+            chongScore: 0,
+            hongScore: 0,
+            chongRoundsWon: 0,
+            hongRoundsWon: 0,
+            chongGamJeom: 0,
+            hongGamJeom: 0,
+            chongLastPenaltyPts: 1,
+            hongLastPenaltyPts: 1,
+            currentRound: 1,
+            matchTimeSetting: 90,
+            restTimeSetting: 30,
+            currentTime: 90,
+            timerRunning: false,
+            isRestMode: false,
+            chongSpinHead: 0,
+            hongSpinHead: 0,
+            chongFirstPoint: false,
+            hongFirstPoint: false,
+            firstScorer: null,
+            matchOver: false,
+            pendingVote: null
+        };
+
+        let currentRole = null;
+        let timerInterval = null;
+
+        function showCustomModal(title, message) {
+            document.getElementById('modal-title').innerText = title;
+            document.getElementById('modal-message').innerText = message;
+            document.getElementById('custom-modal').classList.remove('hidden');
+        }
+
+        function closeCustomModal() {
+            document.getElementById('custom-modal').classList.add('hidden');
+        }
+
+        window.onload = function() {
+            const urlParams = new URLSearchParams(window.location.search);
+            const role = urlParams.get('role');
+            if (role) selectRole(role);
+        };
+
+        function selectRole(role) {
+            currentRole = role;
+            document.getElementById('role-selector').classList.add('hidden');
+            document.getElementById('view-operator').classList.add('hidden');
+            document.getElementById('view-judge').classList.add('hidden');
+            document.getElementById('view-display').classList.add('hidden');
+
+            if (role === 'operator') {
+                document.getElementById('view-operator').classList.remove('hidden');
+                initOperator();
+                setupKeyboardShortcuts();
+            } else if (role === 'judge1' || role === 'judge2') {
+                document.getElementById('view-judge').classList.remove('hidden');
+                document.getElementById('judge-role-title').innerText = `CORNER JUDGE (${role === 'judge1' ? 'กรรมการ 1' : 'กรรมการ 2'})`;
+                initJudge();
+            } else if (role === 'display') {
+                document.getElementById('view-display').classList.remove('hidden');
+                initDisplay();
+            }
+        }
+
+        function switchRolePrompt() {
+            document.getElementById('role-selector').classList.remove('hidden');
+            document.getElementById('view-operator').classList.add('hidden');
+            document.getElementById('view-judge').classList.add('hidden');
+            document.getElementById('view-display').classList.add('hidden');
+        }
+
+        function setupKeyboardShortcuts() {
+            window.addEventListener('keydown', (e) => {
+                if (currentRole !== 'operator' || e.target.tagName === 'INPUT') return;
+                if (e.code === 'Space') { e.preventDefault(); toggleTimer(); }
+                else if (e.code === 'KeyR') { resetTimer(); }
+                else if (e.code === 'KeyM') { switchTimerMode(); }
+                else if (e.code === 'Digit1') { addGamJeom('chong', 1); }
+                else if (e.code === 'Digit2') { addGamJeom('hong', 1); }
+            });
+        }
+
+        function initOperator() {
+            matchRef.on('value', (snapshot) => {
+                let data = snapshot.val();
+                if (!data) { matchRef.set(defaultMatchState); return; }
+                updateUI(data);
+            }, (error) => {
+                console.error("Firebase sync error:", error);
+            });
+        }
+
+        function initDisplay() {
+            matchRef.on('value', (snapshot) => {
+                let data = snapshot.val();
+                if (!data) return;
+                document.getElementById('display-match-title').innerText = data.matchTitle;
+                document.getElementById('display-round').innerText = data.currentRound;
+                document.getElementById('display-chong-name').innerText = data.chongName;
+                document.getElementById('display-hong-name').innerText = data.hongName;
+                document.getElementById('display-chong-score').innerText = data.chongScore;
+                document.getElementById('display-hong-score').innerText = data.hongScore;
+                document.getElementById('display-chong-rounds').innerText = data.chongRoundsWon;
+                document.getElementById('display-hong-rounds').innerText = data.hongRoundsWon;
+                document.getElementById('display-chong-gam').innerText = data.chongGamJeom;
+                document.getElementById('display-hong-gam').innerText = data.hongGamJeom;
+                document.getElementById('display-timer').innerText = formatTime(data.currentTime);
+                
+                // Color highlight for leader on display screen
+                let cCard = document.getElementById('display-card-chong');
+                let hCard = document.getElementById('display-card-hong');
+                let cBadge = document.getElementById('display-chong-leader');
+                let hBadge = document.getElementById('display-hong-leader');
+
+                cCard.classList.remove('card-leader-blue');
+                hCard.classList.remove('card-leader-red');
+                cBadge.classList.add('hidden');
+                hBadge.classList.add('hidden');
+
+                if (data.chongScore > data.hongScore) {
+                    cCard.classList.add('card-leader-blue');
+                    cBadge.classList.remove('hidden');
+                } else if (data.hongScore > data.chongScore) {
+                    hCard.classList.add('card-leader-red');
+                    hBadge.classList.remove('hidden');
+                }
+
+                let modeEl = document.getElementById('display-timer-mode');
+                if (data.isRestMode) {
+                    modeEl.innerText = "REST TIME (พักยก)";
+                    modeEl.className = "text-xs font-bold text-amber-400 font-cyber tracking-widest uppercase mb-3";
+                } else {
+                    modeEl.innerText = "MATCH TIME";
+                    modeEl.className = "text-xs font-bold text-emerald-400 font-cyber tracking-widest uppercase mb-3";
+                }
+
+                // Show Grand Champion celebration modal on display screen if matchOver is true
+                let displayWinnerModal = document.getElementById('display-winner-modal');
+                if (data.matchOver) {
+                    let winner = data.chongRoundsWon >= 2 ? 'chong' : 'hong';
+                    let fighterName = winner === 'chong' ? data.chongName : data.hongName;
+                    let sideLabel = winner === 'chong' ? 'ฝ่ายน้ำเงิน (CHONG)' : 'ฝ่ายแดง (HONG)';
+                    
+                    let bigBox = document.getElementById('display-champion-name-big');
+                    bigBox.innerText = fighterName;
+                    bigBox.className = `text-4xl md:text-6xl font-black font-cyber py-6 px-8 rounded-2xl border-2 my-2 ${winner === 'chong' ? 'bg-blue-950/90 border-blue-400 text-blue-300 glow-blue' : 'bg-red-950/90 border-red-400 text-red-300 glow-red'}`;
+                    
+                    document.getElementById('display-winner-desc').innerText = `สุดยอดนักกีฬา ${sideLabel} คว้าชัยชนะการแข่งขันรายการนี้ด้วยสกอร์ ${data.chongRoundsWon} ต่อ ${data.hongRoundsWon} ยกอย่างยิ่งใหญ่!`;
+                    document.getElementById('display-tiebreak-reason').innerText = `ชนะการแข่งขันแบบ Best of 3 ยกสมบูรณ์แบบ`;
+                    displayWinnerModal.classList.remove('hidden');
+                } else {
+                    displayWinnerModal.classList.add('hidden');
+                }
+            });
+        }
+
+        function judgePressPoint(fighter, pts) {
+            let now = Date.now();
+            matchRef.transaction((data) => {
+                if (!data || data.isRestMode) return data;
+                let vote = data.pendingVote;
+                if (!vote || vote.fighter !== fighter || vote.pts !== pts || (now - vote.time > 1000)) {
+                    data.pendingVote = { judge: currentRole, fighter: fighter, pts: pts, time: now };
+                    return data;
+                } else {
+                    if (vote.judge === currentRole) return data;
+                    if (fighter === 'chong') {
+                        data.chongScore += pts;
+                        if (pts === 4 || pts === 6) data.chongSpinHead += pts;
+                        if (!data.firstScorer) { data.firstScorer = 'chong'; data.chongFirstPoint = true; }
+                    } else {
+                        data.hongScore += pts;
+                        if (pts === 4 || pts === 6) data.hongSpinHead += pts;
+                        if (!data.firstScorer) { data.firstScorer = 'hong'; data.hongFirstPoint = true; }
+                    }
+                    data.pendingVote = null;
+                    if (Math.abs(data.chongScore - data.hongScore) >= 15) {
+                        setTimeout(() => handlePointGapWin(data), 100);
+                    }
+                    return data;
+                }
+            });
+
+            let alertBox = document.getElementById('judge-status-alert');
+            alertBox.classList.remove('hidden');
+            setTimeout(() => alertBox.classList.add('hidden'), 1000);
+        }
+
+        function scorePoint(fighter, pts) {
+            matchRef.transaction((data) => {
+                if (!data || data.isRestMode) return data;
+                if (fighter === 'chong') {
+                    data.chongScore += pts;
+                    if (pts === 4 || pts === 6) data.chongSpinHead += pts;
+                    if (!data.firstScorer) { data.firstScorer = 'chong'; data.chongFirstPoint = true; }
+                } else {
+                    data.hongScore += pts;
+                    if (pts === 4 || pts === 6) data.hongSpinHead += pts;
+                    if (!data.firstScorer) { data.firstScorer = 'hong'; data.hongFirstPoint = true; }
+                }
+                if (Math.abs(data.chongScore - data.hongScore) >= 15) {
+                    setTimeout(() => handlePointGapWin(data), 100);
+                }
+                return data;
+            });
+        }
+
+        function toggleTimer() {
+            matchRef.once('value', (snapshot) => {
+                let data = snapshot.val();
+                let running = !data.timerRunning;
+                matchRef.update({ timerRunning: running });
+                if (running) startIntervalTimer();
+                else stopIntervalTimer();
+            });
+        }
+
+        function startIntervalTimer() {
+            if (timerInterval) clearInterval(timerInterval);
+            timerInterval = setInterval(() => {
+                matchRef.once('value', (snapshot) => {
+                    let data = snapshot.val();
+                    if (!data || !data.timerRunning) return;
+                    let time = data.currentTime - 1;
+                    if (time > 0) {
+                        matchRef.update({ currentTime: time });
+                    } else {
+                        matchRef.update({ currentTime: 0, timerRunning: false });
+                        stopIntervalTimer();
+                        if (!data.isRestMode) handleRoundEnd(data);
+                        else autoProceedNextRoundAfterRest(data);
+                    }
+                });
+            }, 1000);
+        }
+
+        function stopIntervalTimer() { if (timerInterval) clearInterval(timerInterval); }
+
+        function resetTimer() {
+            matchRef.once('value', (snapshot) => {
+                let data = snapshot.val();
+                let time = data.isRestMode ? data.restTimeSetting : data.matchTimeSetting;
+                matchRef.update({ currentTime: time, timerRunning: false });
+                stopIntervalTimer();
+            });
+        }
+
+        function switchTimerMode() {
+            matchRef.once('value', (snapshot) => {
+                let data = snapshot.val();
+                let isRest = !data.isRestMode;
+                let time = isRest ? data.restTimeSetting : data.matchTimeSetting;
+                matchRef.update({ isRestMode: isRest, currentTime: time, timerRunning: false });
+                stopIntervalTimer();
+            });
+        }
+
+        function endRoundManually() {
+            matchRef.once('value', (snapshot) => {
+                let data = snapshot.val();
+                matchRef.update({ timerRunning: false });
+                stopIntervalTimer();
+                handleRoundEnd(data);
+            });
+        }
+
+        function addGamJeom(fighter, penaltyPts) {
+            matchRef.transaction((data) => {
+                if (!data) return data;
+                if (fighter === 'chong') { data.chongGamJeom += 1; data.hongScore += penaltyPts; data.chongLastPenaltyPts = penaltyPts; }
+                else { data.hongGamJeom += 1; data.chongScore += penaltyPts; data.hongLastPenaltyPts = penaltyPts; }
+                return data;
+            });
+        }
+
+        function removeGamJeom(fighter) {
+            matchRef.transaction((data) => {
+                if (!data) return data;
+                if (fighter === 'chong' && data.chongGamJeom > 0) {
+                    data.chongGamJeom -= 1;
+                    data.hongScore = Math.max(0, data.hongScore - (data.chongLastPenaltyPts || 1));
+                } else if (fighter === 'hong' && data.hongGamJeom > 0) {
+                    data.hongGamJeom -= 1;
+                    data.chongScore = Math.max(0, data.chongScore - (data.hongLastPenaltyPts || 1));
+                }
+                return data;
+            });
+        }
+
+        function adjustScore(fighter, amount) {
+            matchRef.transaction((data) => {
+                if (!data) return data;
+                if (fighter === 'chong') data.chongScore = Math.max(0, data.chongScore + amount);
+                if (fighter === 'hong') data.hongScore = Math.max(0, data.hongScore + amount);
+                return data;
+            });
+        }
+
+        function initJudge() {
+            matchRef.on('value', (snapshot) => {
+                let data = snapshot.val();
+                if (!data) return;
+                document.getElementById('judge-round').innerText = data.currentRound;
+                document.getElementById('judge-timer').innerText = formatTime(data.currentTime);
+                document.getElementById('judge-chong-score').innerText = data.chongScore;
+                document.getElementById('judge-hong-score').innerText = data.hongScore;
+                
+                let statusEl = document.getElementById('judge-timer-status');
+                if (data.timerRunning) {
+                    statusEl.innerText = data.isRestMode ? "กำลังพัก" : "กำลังแข่ง";
+                    statusEl.className = "text-amber-400 font-bold";
+                } else {
+                    statusEl.innerText = "หยุดเวลา";
+                    statusEl.className = "text-rose-400 font-bold";
+                }
+            });
+        }
+
+        function handlePointGapWin(data) {
+            let winner = data.chongScore > data.hongScore ? 'chong' : 'hong';
+            processRoundWinner(winner, `ชนะโดยกฎ Point Gap ห่างกัน 15 แต้ม (${data.chongScore} - ${data.hongScore})`);
+        }
+
+        function handleRoundEnd(data) {
+            let chong = data.chongScore;
+            let hong = data.hongScore;
+            let winner = null;
+            let tieReason = "";
+
+            if (chong > hong) { winner = 'chong'; tieReason = `คะแนนมากกว่าในยกนี้ (${chong} ต่อ ${hong})`; }
+            else if (hong > chong) { winner = 'hong'; tieReason = `คะแนนมากกว่าในยกนี้ (${hong} ต่อ ${chong})`; }
+            else {
+                if (data.chongSpinHead > data.hongSpinHead) { winner = 'chong'; tieReason = `คะแนนเสมอกัน แต่น้ำเงินได้แต้มลูกหมุนหัวมากกว่า`; }
+                else if (data.hongSpinHead > data.chongSpinHead) { winner = 'hong'; tieReason = `คะแนนเสมอกัน แต่แดงได้แต้มลูกหมุนหัวมากกว่า`; }
+                else {
+                    if (data.chongFirstPoint) { winner = 'chong'; tieReason = `น้ำเงินทำแต้มแรกได้ก่อนในยกนี้`; }
+                    else if (data.hongFirstPoint) { winner = 'hong'; tieReason = `แดงทำแต้มแรกได้ก่อนในยกนี้`; }
+                    else { showSuperiorityModal(); return; }
+                }
+            }
+            processRoundWinner(winner, tieReason);
+        }
+
+        function processRoundWinner(winner, reason) {
+            matchRef.once('value', (snapshot) => {
+                let data = snapshot.val();
+                let cWon = data.chongRoundsWon;
+                let hWon = data.hongRoundsWon;
+                if (winner === 'chong') cWon++; else hWon++;
+                
+                let isMatchOver = (cWon >= 2 || hWon >= 2);
+                matchRef.update({ chongRoundsWon: cWon, hongRoundsWon: hWon, matchOver: isMatchOver });
+
+                let fighterName = winner === 'chong' ? data.chongName : data.hongName;
+                let sideLabel = winner === 'chong' ? 'ฝ่ายน้ำเงิน (CHONG)' : 'ฝ่ายแดง (HONG)';
+
+                let championBadge = document.getElementById('match-champion-badge');
+                let championBigBox = document.getElementById('champion-name-big');
+                let btnNext = document.getElementById('btn-next-round');
+
+                if (isMatchOver) {
+                    championBadge.classList.remove('hidden');
+                    document.getElementById('winner-title').innerText = `👑 GRAND CHAMPION 👑`;
+                    championBigBox.classList.remove('hidden');
+                    championBigBox.innerText = `${fighterName}`;
+                    championBigBox.className = `text-4xl md:text-6xl font-black font-cyber py-6 px-8 rounded-2xl border-2 my-2 ${winner === 'chong' ? 'bg-blue-950/90 border-blue-400 text-blue-300 glow-blue' : 'bg-red-950/90 border-red-400 text-red-300 glow-red'}`;
+                    document.getElementById('winner-desc').innerText = `สุดยอดนักกีฬา ${sideLabel} คว้าชัยชนะการแข่งขันรายการนี้ด้วยสกอร์ ${cWon} ต่อ ${hWon} ยกอย่างยิ่งใหญ่!`;
+                    btnNext.innerText = "🔄 เริ่มแมตช์ใหม่";
+
+                    saveMatchHistory({
+                        matchTitle: data.matchTitle,
+                        chongName: data.chongName,
+                        hongName: data.hongName,
+                        score: `${cWon} - ${hWon} ยก`,
+                        winner: fighterName,
+                        timestamp: new Date().toLocaleString('th-TH')
+                    });
+                } else {
+                    championBadge.classList.add('hidden');
+                    championBigBox.classList.add('hidden');
+                    document.getElementById('winner-title').innerText = `✨ ผู้ชนะยกที่ ${data.currentRound}: ${fighterName}`;
+                    document.getElementById('winner-desc').innerText = `${sideLabel} คว้ายกนี้ไปได้ (สกอร์รวม: น้ำเงิน ${cWon} - ${hWon} แดง)`;
+                    btnNext.innerText = "พักยก (Start Rest) ➔";
+                }
+
+                document.getElementById('tiebreak-box').classList.remove('hidden');
+                document.getElementById('tiebreak-reason').innerText = reason;
+                document.getElementById('superiority-box').classList.add('hidden');
+                document.getElementById('winner-modal').classList.remove('hidden');
+            });
+        }
+
+        function saveMatchHistory(historyData) { historyRef.push(historyData); }
+
+        function openHistoryModal() {
+            historyRef.once('value', (snapshot) => {
+                let listEl = document.getElementById('history-list');
+                listEl.innerHTML = '';
+                let data = snapshot.val();
+                if (!data) {
+                    listEl.innerHTML = '<p class="text-slate-500 text-center py-8 text-xs">ยังไม่มีประวัติการแข่งขันในระบบ</p>';
+                } else {
+                    Object.values(data).reverse().forEach(item => {
+                        listEl.innerHTML += `
+                            <div class="bg-slate-950/80 border border-slate-800/80 p-3.5 rounded-2xl flex justify-between items-center">
+                                <div>
+                                    <div class="text-[10px] text-cyan-400 font-cyber">${item.matchTitle} (${item.timestamp})</div>
+                                    <div class="text-sm font-bold text-white mt-0.5">${item.chongName} vs ${item.hongName}</div>
+                                    <div class="text-[11px] text-slate-400 mt-0.5">ผู้ชนะ: <span class="text-amber-400 font-bold">${item.winner}</span> (${item.score})</div>
+                                </div>
+                            </div>
+                        `;
+                    });
+                }
+                document.getElementById('history-modal').classList.remove('hidden');
+            });
+        }
+
+        function closeHistoryModal() { document.getElementById('history-modal').classList.add('hidden'); }
+        function clearHistory() { 
+            showCustomModal("ล้างประวัติ", "ต้องการล้างประวัติทั้งหมดใช่หรือไม่?");
+            document.getElementById('modal-btn-ok').onclick = () => {
+                historyRef.remove();
+                closeCustomModal();
+                openHistoryModal();
+            };
+        }
+
+        function showSuperiorityModal() {
+            document.getElementById('match-champion-badge').classList.add('hidden');
+            document.getElementById('champion-name-big').classList.add('hidden');
+            document.getElementById('winner-title').innerText = "⚖️ คะแนนเท่ากันทุกเงื่อนไข";
+            document.getElementById('winner-desc').innerText = "กรุณาให้ผู้ตัดสินชี้ขาด (Superiority Decision)";
+            document.getElementById('tiebreak-box').classList.add('hidden');
+            document.getElementById('superiority-box').classList.remove('hidden');
+            document.getElementById('winner-modal').classList.remove('hidden');
+        }
+
+        function selectSuperiority(winner) { processRoundWinner(winner, `ผู้ตัดสินชี้ขาดให้ชนะด้วยวิธี Superiority Decision`); }
+
+        function proceedNextRound() {
+            document.getElementById('winner-modal').classList.add('hidden');
+            matchRef.once('value', (snapshot) => {
+                let data = snapshot.val();
+                if (data.matchOver) { matchRef.set(defaultMatchState); return; }
+                matchRef.update({ isRestMode: true, currentTime: data.restTimeSetting, timerRunning: false });
+            });
+        }
+
+        function autoProceedNextRoundAfterRest(data) {
+            matchRef.update({
+                currentRound: data.currentRound + 1,
+                chongScore: 0, hongScore: 0,
+                chongGamJeom: 0, hongGamJeom: 0,
+                chongSpinHead: 0, hongSpinHead: 0,
+                chongFirstPoint: false, hongFirstPoint: false,
+                firstScorer: null,
+                isRestMode: false,
+                currentTime: data.matchTimeSetting,
+                timerRunning: false
+            });
+        }
+
+        function openSettings() {
+            matchRef.once('value', (snapshot) => {
+                let d = snapshot.val();
+                document.getElementById('input-match-title').value = d.matchTitle;
+                document.getElementById('input-chong-name').value = d.chongName;
+                document.getElementById('input-hong-name').value = d.hongName;
+                document.getElementById('input-match-time').value = d.matchTimeSetting;
+                document.getElementById('input-rest-time').value = d.restTimeSetting;
+                document.getElementById('settings-modal').classList.remove('hidden');
+            });
+        }
+
+        function closeSettings() { document.getElementById('settings-modal').classList.add('hidden'); }
+
+        function saveSettings() {
+            matchRef.update({
+                matchTitle: document.getElementById('input-match-title').value,
+                chongName: document.getElementById('input-chong-name').value,
+                hongName: document.getElementById('input-hong-name').value,
+                matchTimeSetting: parseInt(document.getElementById('input-match-time').value) || 90,
+                restTimeSetting: parseInt(document.getElementById('input-rest-time').value) || 30,
+                currentTime: parseInt(document.getElementById('input-match-time').value) || 90
+            });
+            closeSettings();
+        }
+
+        function resetMatch() { 
+            showCustomModal("รีเซ็ตแมตช์", "ต้องการรีเซ็ตคะแนนและเวลาทั้งหมดใช่หรือไม่?");
+            document.getElementById('modal-btn-ok').onclick = () => {
+                matchRef.set(defaultMatchState);
+                closeCustomModal();
+            };
+        }
+
+        function updateUI(data) {
+            document.getElementById('match-title-display').innerText = data.matchTitle;
+            document.getElementById('current-round').innerText = data.currentRound;
+            document.getElementById('chong-name').innerText = data.chongName;
+            document.getElementById('hong-name').innerText = data.hongName;
+            document.getElementById('chong-score').innerText = data.chongScore;
+            document.getElementById('hong-score').innerText = data.hongScore;
+            document.getElementById('chong-rounds-won').innerText = data.chongRoundsWon;
+            document.getElementById('hong-rounds-won').innerText = data.hongRoundsWon;
+            document.getElementById('chong-gamjeom').innerText = data.chongGamJeom;
+            document.getElementById('hong-gamjeom').innerText = data.hongGamJeom;
+            document.getElementById('timer-display').innerText = formatTime(data.currentTime);
+            
+            // Highlight leader card color on Operator view
+            let cPanel = document.getElementById('panel-chong');
+            let hPanel = document.getElementById('panel-hong');
+            let cBadge = document.getElementById('chong-leader-badge');
+            let hBadge = document.getElementById('hong-leader-badge');
+
+            cPanel.classList.remove('card-leader-blue');
+            hPanel.classList.remove('card-leader-red');
+            cBadge.classList.add('hidden');
+            hBadge.classList.add('hidden');
+
+            if (data.chongScore > data.hongScore) {
+                cPanel.classList.add('card-leader-blue');
+                cBadge.classList.remove('hidden');
+            } else if (data.hongScore > data.chongScore) {
+                hPanel.classList.add('card-leader-red');
+                hBadge.classList.remove('hidden');
+            }
+
+            let btnTimer = document.getElementById('btn-timer');
+            if (data.timerRunning) {
+                btnTimer.innerText = "⏸️ หยุดเวลา [Space]";
+                btnTimer.className = "w-full bg-gradient-to-r from-rose-600 to-red-600 py-3.5 rounded-2xl font-bold text-xs md:text-sm shadow-lg transition tracking-wide";
+                if (!timerInterval) startIntervalTimer();
+            } else {
+                btnTimer.innerText = "▶️ เริ่มเวลา [Space]";
+                btnTimer.className = "w-full bg-gradient-to-r from-emerald-600 to-green-600 py-3.5 rounded-2xl font-bold text-xs md:text-sm shadow-lg transition tracking-wide";
+            }
+
+            let modeBtn = document.getElementById('timer-mode-btn');
+            let modeLabel = document.getElementById('timer-mode-label');
+            if (data.isRestMode) {
+                modeBtn.innerText = "สลับ: แข่งขัน (Match) [M]";
+                modeLabel.innerText = "REST TIME (พักยก)";
+                modeLabel.className = "text-[11px] font-bold text-amber-400 tracking-wider uppercase mb-1 font-cyber";
+            } else {
+                modeBtn.innerText = "สลับ: พักยก (Rest) [M]";
+                modeLabel.innerText = "MATCH TIME";
+                modeLabel.className = "text-[11px] font-bold text-emerald-400 tracking-wider uppercase mb-1 font-cyber";
+            }
+        }
+
+        function formatTime(seconds) {
+            let m = Math.floor(seconds / 60);
+            let s = seconds % 60;
+            return `${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
+        }
+    </script>
+</body>
+</html>
